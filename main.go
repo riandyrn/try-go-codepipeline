@@ -8,7 +8,7 @@ import (
 const addr = ":8091"
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello! It's able to handle the failure in test. This is great :D!"))
+	w.Write([]byte("Hello World!"))
 }
 
 func main() {
