@@ -1,10 +1,33 @@
+# This document will be used when we are in build
+# stage of codepipeline. In this document we will
+# tell the build stage to run automated test for
+# our source code on phase called `build`.
+
+# We will use the current recommended version for 
+# buildspec.yml which is 0.2
+# https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html
 version: 0.2
 
+# This is where we specify what to do on specific
+# build phases. There are multiple phases available,
+# but in this project we will use the phase called
+# `build` to run our automated test
+# https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html
 phases:
   build:
     commands:
+      # execute any test found in the source
       - go test
 
+# This is where we specify which files we want to
+# keep after build stage is passed. Since we want
+# to deploy our server to Beanstalk using single
+# docker container, we need to keep Dockerfile &
+# main.go.
+#
+# We could use keep all files, if so just put 
+# '**/*' on the `files` section.
 artifacts:
   files:
-    - '**/*'
+    - Dockerfile
+    - main.go

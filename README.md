@@ -1,3 +1,3 @@
 # Try Go CodePipeline
 
-Try use go in AWS CodePipeline
+Try to deploy Go server running in single Docker container to AWS Beanstalk using AWS CodePipeline.

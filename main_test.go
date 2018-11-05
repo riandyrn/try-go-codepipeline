@@ -23,7 +23,7 @@ func TestIndex(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Errorf("unexpected response status, expected: %v, got: %v", http.StatusOK, rr.Code)
 	}
-	// check response content
+	// check if response content contains word `Hello`
 	containsWord := "Hello"
 	if !strings.Contains(rr.Body.String(), containsWord) {
 		t.Errorf("response should contains word: `%v`", containsWord)
