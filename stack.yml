@@ -1,0 +1,329 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Entire stack for deploying go app with Elastic Beanstalk & CodePipeline using default VPC
+Parameters:
+  GithubToken:
+    Type: String
+    Description: Create a token with 'repo' and 'admin:repo_hook' permissions here https://github.com/settings/tokens
+  GithubUser:
+    Type: String
+    Description: Enter github username of the repository owner
+    Default: riandyrn
+  GithubRepo:
+    Type: String
+    Description: Enter repository name that will be monitored for changes
+    Default: try-go-codepipeline
+
+Resources:
+  # Define AWS Beanstalk stack, we need to define:
+  # - Application
+  # - ApplicationVersion
+  # - ConfigurationTemplate
+  # - Environment
+  Application:
+    Type: AWS::ElasticBeanstalk::Application
+    Properties: 
+      ApplicationName: !Ref AWS::StackName
+  ApplicationVersion:
+    Type: AWS::ElasticBeanstalk::ApplicationVersion
+    Properties:
+      ApplicationName: !Ref Application
+      SourceBundle:
+        S3Bucket: !Sub elasticbeanstalk-samples-${AWS::Region}
+        S3Key: docker-sample-v3.zip
+  ApplicationConfigurationTemplate:
+    Type: AWS::ElasticBeanstalk::ConfigurationTemplate
+    Properties:
+      ApplicationName: !Ref Application
+      SolutionStackName: 64bit Amazon Linux 2018.03 v2.12.4 running Docker 18.06.1-ce
+  ApplicationEnvironment:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      ApplicationName: !Ref Application
+      TemplateName: !Ref ApplicationConfigurationTemplate
+      VersionLabel: !Ref ApplicationVersion
+
+  # Define AWS CodePipeline stack, we need to define:
+  # - ArtifactBucket
+  # - CodePipelineRole
+  # - CodeBuildRole
+  # - CodeBuild
+  # - CodePipeline
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-CodePipeline-${AWS::Region}
+      AssumeRolePolicyDocument: |
+        {
+            "Statement": [{
+                "Action": "sts:AssumeRole",
+                "Effect": "Allow",
+                "Principal": { 
+                    "Service": "codepipeline.amazonaws.com" 
+                }
+            }]
+        }
+      Policies:
+        - PolicyName: !Sub ${AWS::StackName}-CodePipeline-${AWS::Region}
+          PolicyDocument: !Sub |
+            {
+                "Statement": [
+                    {
+                        "Action": [
+                            "iam:PassRole"
+                        ],
+                        "Resource": "*",
+                        "Effect": "Allow",
+                        "Condition": {
+                            "StringEqualsIfExists": {
+                                "iam:PassedToService": [
+                                    "cloudformation.amazonaws.com",
+                                    "elasticbeanstalk.amazonaws.com",
+                                    "ec2.amazonaws.com"
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "Action": [
+                            "codecommit:CancelUploadArchive",
+                            "codecommit:GetBranch",
+                            "codecommit:GetCommit",
+                            "codecommit:GetUploadArchiveStatus",
+                            "codecommit:UploadArchive"
+                        ],
+                        "Resource": "*",
+                        "Effect": "Allow"
+                    },
+                    {
+                        "Action": [
+                            "codedeploy:CreateDeployment",
+                            "codedeploy:GetApplicationRevision",
+                            "codedeploy:GetDeployment",
+                            "codedeploy:GetDeploymentConfig",
+                            "codedeploy:RegisterApplicationRevision"
+                        ],
+                        "Resource": "*",
+                        "Effect": "Allow"
+                    },
+                    {
+                        "Action": [
+                            "elasticbeanstalk:*",
+                            "ec2:*",
+                            "elasticloadbalancing:*",
+                            "autoscaling:*",
+                            "cloudwatch:*",
+                            "s3:*",
+                            "sns:*",
+                            "cloudformation:*",
+                            "rds:*",
+                            "sqs:*",
+                            "ecs:*"
+                        ],
+                        "Resource": "*",
+                        "Effect": "Allow"
+                    },
+                    {
+                        "Action": [
+                            "lambda:InvokeFunction",
+                            "lambda:ListFunctions"
+                        ],
+                        "Resource": "*",
+                        "Effect": "Allow"
+                    },
+                    {
+                        "Action": [
+                            "opsworks:CreateDeployment",
+                            "opsworks:DescribeApps",
+                            "opsworks:DescribeCommands",
+                            "opsworks:DescribeDeployments",
+                            "opsworks:DescribeInstances",
+                            "opsworks:DescribeStacks",
+                            "opsworks:UpdateApp",
+                            "opsworks:UpdateStack"
+                        ],
+                        "Resource": "*",
+                        "Effect": "Allow"
+                    },
+                    {
+                        "Action": [
+                            "cloudformation:CreateStack",
+                            "cloudformation:DeleteStack",
+                            "cloudformation:DescribeStacks",
+                            "cloudformation:UpdateStack",
+                            "cloudformation:CreateChangeSet",
+                            "cloudformation:DeleteChangeSet",
+                            "cloudformation:DescribeChangeSet",
+                            "cloudformation:ExecuteChangeSet",
+                            "cloudformation:SetStackPolicy",
+                            "cloudformation:ValidateTemplate"
+                        ],
+                        "Resource": "*",
+                        "Effect": "Allow"
+                    },
+                    {
+                        "Action": [
+                            "codebuild:BatchGetBuilds",
+                            "codebuild:StartBuild"
+                        ],
+                        "Resource": "*",
+                        "Effect": "Allow"
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "devicefarm:ListProjects",
+                            "devicefarm:ListDevicePools",
+                            "devicefarm:GetRun",
+                            "devicefarm:GetUpload",
+                            "devicefarm:CreateUpload",
+                            "devicefarm:ScheduleRun"
+                        ],
+                        "Resource": "*"
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "servicecatalog:ListProvisioningArtifacts",
+                            "servicecatalog:CreateProvisioningArtifact",
+                            "servicecatalog:DescribeProvisioningArtifact",
+                            "servicecatalog:DeleteProvisioningArtifact",
+                            "servicecatalog:UpdateProduct"
+                        ],
+                        "Resource": "*"
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "cloudformation:ValidateTemplate"
+                        ],
+                        "Resource": "*"
+                    }
+                ],
+                "Version": "2012-10-17"
+            }
+  
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-CodeBuild-${AWS::Region}
+      AssumeRolePolicyDocument: |
+        {
+            "Statement": [{
+                "Action": "sts:AssumeRole",
+                "Effect": "Allow",
+                "Principal": { 
+                    "Service": "codebuild.amazonaws.com" 
+                }
+            }]
+        }
+      Policies: 
+        - PolicyName: !Sub ${AWS::StackName}-CodeBuild-${AWS::Region}
+          PolicyDocument: !Sub |      
+            {
+              "Statement": [              
+                {
+                  "Effect": "Allow",
+                  "Resource": [ "*" ],
+                  "Action": [
+                      "logs:CreateLogGroup",
+                      "logs:CreateLogStream",
+                      "logs:PutLogEvents"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Resource": [
+                      "arn:aws:s3:::${ArtifactBucket}/${AWS::StackName}/*"
+                  ],
+                  "Action": [
+                      "s3:GetObject",
+                      "s3:GetObjectVersion",
+                      "s3:PutObject"
+                  ]
+                }
+              ]
+            }
+  
+  CodeBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref AWS::StackName
+      Description: !Sub Build project for ${AWS::StackName}
+      ServiceRole: !Ref CodeBuildRole
+      Source:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/golang:1.10
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: ARTIFACT_S3_BUCKET
+            Value: !Ref ArtifactBucket
+      Artifacts:
+        Name: !Ref AWS::StackName
+        Type: CODEPIPELINE
+  
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Ref AWS::StackName
+      RoleArn: !Sub ${CodePipelineRole.Arn}
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Github
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              OutputArtifacts:
+                - Name: Source
+              Configuration:
+                Owner: !Ref GithubUser
+                Repo: !Ref GithubRepo
+                Branch: master
+                OAuthToken: !Ref GithubToken
+        - Name: Build
+          Actions:
+            - Name: CodeBuild
+              InputArtifacts:
+                - Name: Source
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              OutputArtifacts:
+                - Name: Built
+              Configuration:
+                ProjectName: !Ref CodeBuild
+        - Name: Deploy
+          Actions:
+            - Name: DeployInfrastructure
+              RunOrder: 1
+              InputArtifacts:
+                - Name: Built
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: ElasticBeanstalk
+              Configuration:
+                ApplicationName: !Ref Application
+                EnvironmentName: !Ref ApplicationEnvironment
+                
+Outputs:
+  CodePipelineURL:
+    Description: The URL for the created pipeline
+    Value: !Sub https://${AWS::Region}.console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${AWS::StackName}
+  AppEndpoint:
+    Description: Application endpoint
+    Value: !Sub http://${ApplicationEnvironment.EndpointURL}

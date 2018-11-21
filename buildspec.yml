@@ -25,7 +25,7 @@ phases:
 # docker container, we need to keep Dockerfile &
 # main.go.
 #
-# We could use keep all files, if so just put 
+# We could just keep all files, if so just put 
 # '**/*' on the `files` section.
 artifacts:
   files:
